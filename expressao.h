@@ -2,14 +2,14 @@
 #define EXPRESSAO_H
 
 typedef struct {
-    char posFixa[512]; // Forma pós-fixa (ex: "3 4 + 5 *")
-    char infixa[512];  // Forma infixa (ex: "(3 + 4) * 5")
-    float valor;       // Valor calculado
+    char posFixa[512];
+    char infixa[512];
+    float valor;
 } Expressao;
 
-char* getFormaInFixa(char* posFixa);    // Converte pós-fixa → infixa
-char* getFormaPosFixa(char* infixa);    // Converte infixa → pós-fixa
-float getValorPosFixa(char* posFixa);   // Calcula valor da pós-fixa
-float getValorInFixa(char* infixa);     // Calcula valor da infixa
+char* getFormaInFixa(char* posFixa);
+char* getFormaPosFixa(char* infixa);
+float getValorPosFixa(char* posFixa);
+float getValorInFixa(char* infixa);
 
 #endif

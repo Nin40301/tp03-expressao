@@ -5,7 +5,6 @@
 #include <math.h>
 #include "expressao.h"
 
-// TAD Pilha (para conversão e cálculo)
 typedef struct No {
     char dado;
     struct No* prox;
@@ -37,7 +36,6 @@ char desempilhar(Pilha* p) {
     return c;
 }
 
-// Funções Auxiliares
 int precedencia(char op) {
     if (op == '^') return 4;
     if (op == '*' || op == '/' || op == '%') return 3;
@@ -49,7 +47,6 @@ int ehOperador(char c) {
     return c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '^';
 }
 
-// Conversão Infixa → Pós-fixa (Algoritmo Shunting-yard)
 char* getFormaPosFixa(char* infixa) {
     Pilha* p = criarPilha();
     char posFixa[512] = "";
@@ -71,7 +68,7 @@ char* getFormaPosFixa(char* infixa) {
                 posFixa[j++] = desempilhar(p);
                 posFixa[j++] = ' ';
             }
-            desempilhar(p); // Remove '('
+            desempilhar(p);
         } else if (ehOperador(infixa[i])) {
             while (p->topo != NULL && precedencia(p->topo->dado) >= precedencia(infixa[i])) {
                 posFixa[j++] = desempilhar(p);
@@ -90,7 +87,6 @@ char* getFormaPosFixa(char* infixa) {
     return strdup(posFixa);
 }
 
-// Cálculo de Expressão Pós-fixa (com funções especiais)
 float getValorPosFixa(char* posFixa) {
     Pilha* p = criarPilha();
     char* token = strtok(posFixa, " ");
@@ -123,10 +119,24 @@ float getValorPosFixa(char* posFixa) {
     return desempilhar(p);
 }
 
-// Outras funções (simplificadas)
 char* getFormaInFixa(char* posFixa) {
-    // Implementação similar à conversão reversa (usando pilha)
-    return strdup("Implementação similar à pós-fixa");
+    Pilha* p = criarPilha();
+    char* token = strtok(posFixa, " ");
+
+    while (token != NULL) {
+        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1]))) {
+            empilhar(p, token);
+        } else if (ehOperador(token[0])) {
+            char* b = desempilhar(p);
+            char* a = desempilhar(p);
+            char temp[512];
+            sprintf(temp, "(%s %c %s)", a, token[0], b);
+            empilhar(p, strdup(temp));
+        }
+        token = strtok(NULL, " ");
+    }
+
+    return desempilhar(p);
 }
 
 float getValorInFixa(char* infixa) {
