@@ -1,11 +1,6 @@
-# Avaliador de Expressões Numéricas
+# Avaliador de Expressoes Numericas
 
-## 📝 Descrição
-Programa em C para avaliar expressões matemáticas (infixa/pós-fixa) com:
-- Operadores: `+`, `-`, `*`, `/`, `%`, `^`
-- Funções: `sen`, `cos`, `tg`, `log`, `raiz`
-
-## ▶️ Como Executar
+## Como Usar
 ```bash
-gcc expressao.c main.c -o avaliador
+gcc expressao.c main.c -o avaliador -lm
 ./avaliador
