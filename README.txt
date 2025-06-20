@@ -5,7 +5,7 @@ Matricula: UC24102939
 
 ===================================================
 
-INSTRUCOES PARA COMPILACAO E EXECUCAO:
+INSTRUCOES PARA COMPILACAO E EXECUCAO
 
 1. Compilacao:
    gcc expressao.c main.c -o avaliador -lm

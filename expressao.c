@@ -5,266 +5,183 @@
 #include <ctype.h>
 #include "expressao.h"
 
-#define MAX_TAM 512
+// Definição da pilha para operadores (usada na conversão infixa -> pós-fixa)
+#define MAX_PILHA 100
 
-// ----------------------------
-// Implementacao da Pilha (TAD)
-// ----------------------------
-
-// Estrutura da pilha para numeros
 typedef struct {
-    float itens[MAX_TAM];
+    char itens[MAX_PILHA];
     int topo;
-} PilhaNumeros;
+} PilhaChar;
 
-// Estrutura da pilha para operadores
-typedef struct {
-    char itens[MAX_TAM];
-    int topo;
-} PilhaOperadores;
-
-// Inicializa pilha de numeros
-void inicializarPilhaNum(PilhaNumeros *p) {
+void inicializaPilhaChar(PilhaChar *p) {
     p->topo = -1;
 }
 
-// Verifica se pilha de numeros esta vazia
-int pilhaNumVazia(PilhaNumeros *p) {
+int pilhaVazia(PilhaChar *p) {
     return p->topo == -1;
 }
 
-// Empilha numero
-void empilharNum(PilhaNumeros *p, float valor) {
-    if (p->topo < MAX_TAM-1) {
-        p->itens[++p->topo] = valor;
+void empilhaChar(PilhaChar *p, char c) {
+    if (p->topo < MAX_PILHA - 1) {
+        p->itens[++p->topo] = c;
     }
 }
 
-// Desempilha numero
-float desempilharNum(PilhaNumeros *p) {
-    if (!pilhaNumVazia(p)) {
-        return p->itens[p->topo--];
-    }
-    return 0.0f;
-}
-
-// Inicializa pilha de operadores
-void inicializarPilhaOp(PilhaOperadores *p) {
-    p->topo = -1;
-}
-
-// Verifica se pilha de operadores esta vazia
-int pilhaOpVazia(PilhaOperadores *p) {
-    return p->topo == -1;
-}
-
-// Empilha operador
-void empilharOp(PilhaOperadores *p, char op) {
-    if (p->topo < MAX_TAM-1) {
-        p->itens[++p->topo] = op;
-    }
-}
-
-// Desempilha operador
-char desempilharOp(PilhaOperadores *p) {
-    if (!pilhaOpVazia(p)) {
+char desempilhaChar(PilhaChar *p) {
+    if (!pilhaVazia(p)) {
         return p->itens[p->topo--];
     }
     return '\0';
 }
 
-// Retorna o operador no topo
-char topoPilhaOp(PilhaOperadores *p) {
-    if (!pilhaOpVazia(p)) {
+char topoPilhaChar(PilhaChar *p) {
+    if (!pilhaVazia(p)) {
         return p->itens[p->topo];
     }
     return '\0';
 }
 
-// ----------------------------
-// Funcoes Auxiliares
-// ----------------------------
+// Definição da pilha para números (usada na avaliação pós-fixa)
+typedef struct {
+    float itens[MAX_PILHA];
+    int topo;
+} PilhaFloat;
 
-// Retorna a prioridade do operador
-int prioridadeOperador(char op) {
-    switch(op) {
+void inicializaPilhaFloat(PilhaFloat *p) {
+    p->topo = -1;
+}
+
+void empilhaFloat(PilhaFloat *p, float num) {
+    if (p->topo < MAX_PILHA - 1) {
+        p->itens[++p->topo] = num;
+    }
+}
+
+float desempilhaFloat(PilhaFloat *p) {
+    if (p->topo >= 0) {
+        return p->itens[p->topo--];
+    }
+    return 0.0;
+}
+
+// Funções auxiliares
+int prioridade(char op) {
+    switch (op) {
         case '^': return 4;
-        case '*':
-        case '/':
-        case '%': return 3;
-        case '+':
-        case '-': return 2;
+        case '*': case '/': case '%': return 3;
+        case '+': case '-': return 2;
         default: return 0;
     }
 }
 
-// Aplica operacao entre dois numeros
-float aplicarOperacao(float a, float b, char op) {
-    switch(op) {
-        case '+': return a + b;
-        case '-': return a - b;
-        case '*': return a * b;
-        case '/': return a / b;
-        case '^': return powf(a, b);
-        case '%': return fmodf(a, b);
-        default: return 0.0f;
+int ehOperador(char c) {
+    return c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '^';
+}
+
+int ehFuncao(const char *str, int i) {
+    const char *funcoes[] = {"raiz", "sen", "cos", "tg", "log"};
+    for (int j = 0; j < 5; j++) {
+        int len = strlen(funcoes[j]);
+        if (strncmp(&str[i], funcoes[j], len) == 0) {
+            return len;
+        }
     }
+    return 0;
 }
 
-// Aplica funcao matematica
-float aplicarFuncaoMat(char *funcao, float valor) {
-    if (strcmp(funcao, "log") == 0) return log10f(valor);
-    if (strcmp(funcao, "raiz") == 0) return sqrtf(valor);
-    if (strcmp(funcao, "sen") == 0) return sinf(valor * M_PI / 180);
-    if (strcmp(funcao, "cos") == 0) return cosf(valor * M_PI / 180);
-    if (strcmp(funcao, "tg") == 0) return tanf(valor * M_PI / 180);
-    return 0.0f;
-}
+// Converte infixa para pós-fixa (Shunting-yard algorithm)
+char *getFormaPosFixa(char *inFixa) {
+    static char posFixa[512];
+    PilhaChar pilha;
+    inicializaPilhaChar(&pilha);
+    int j = 0;
 
-// ----------------------------
-// Funcoes Principais
-// ----------------------------
+    for (int i = 0; inFixa[i] != '\0'; i++) {
+        if (isspace(inFixa[i])) continue;
 
-// Converte expressao infixa para pos-fixa
-char *converterParaPosFixa(char *exprInFixa) {
-    static char saida[MAX_TAM];
-    PilhaOperadores pilhaOp;
-    inicializarPilhaOp(&pilhaOp);
-    int i = 0, j = 0;
-    char token[20];
-    int posToken = 0;
-
-    saida[0] = '\0';
-
-    while (exprInFixa[i] != '\0') {
-        // Ignora espacos em branco
-        if (isspace(exprInFixa[i])) {
-            i++;
-            continue;
-        }
-
-        // Trata numeros (inteiros ou decimais)
-        if (isdigit(exprInFixa[i]) || exprInFixa[i] == '.') {
-            while (isdigit(exprInFixa[i]) || exprInFixa[i] == '.') {
-                saida[j++] = exprInFixa[i++];
+        if (isdigit(inFixa[i]) || inFixa[i] == '.') {
+            while (isdigit(inFixa[i]) || inFixa[i] == '.') {
+                posFixa[j++] = inFixa[i++];
             }
-            saida[j++] = ' ';
-        }
-        // Trata funcoes matematicas (log, sen, cos, etc.)
-        else if (isalpha(exprInFixa[i])) {
-            posToken = 0;
-            while (isalpha(exprInFixa[i])) {
-                token[posToken++] = exprInFixa[i++];
+            posFixa[j++] = ' ';
+            i--;
+        } else if (inFixa[i] == '(') {
+            empilhaChar(&pilha, inFixa[i]);
+        } else if (inFixa[i] == ')') {
+            while (topoPilhaChar(&pilha) != '(') {
+                posFixa[j++] = desempilhaChar(&pilha);
+                posFixa[j++] = ' ';
             }
-            token[posToken] = '\0';
-            strcat(saida, token);
-            strcat(saida, " ");
-        }
-        // Trata abertura de parenteses
-        else if (exprInFixa[i] == '(') {
-            empilharOp(&pilhaOp, exprInFixa[i]);
-            i++;
-        }
-        // Trata fechamento de parenteses
-        else if (exprInFixa[i] == ')') {
-            while (!pilhaOpVazia(&pilhaOp) && topoPilhaOp(&pilhaOp) != '(') {
-                saida[j++] = desempilharOp(&pilhaOp);
-                saida[j++] = ' ';
+            desempilhaChar(&pilha); // Remove '('
+        } else if (ehOperador(inFixa[i])) {
+            while (!pilhaVazia(&pilha) && prioridade(topoPilhaChar(&pilha)) >= prioridade(inFixa[i])) {
+                posFixa[j++] = desempilhaChar(&pilha);
+                posFixa[j++] = ' ';
             }
-            desempilharOp(&pilhaOp); // Remove o '('
-            i++;
-        }
-        // Trata operadores
-        else {
-            while (!pilhaOpVazia(&pilhaOp) && 
-                   prioridadeOperador(topoPilhaOp(&pilhaOp)) >= prioridadeOperador(exprInFixa[i])) {
-                saida[j++] = desempilharOp(&pilhaOp);
-                saida[j++] = ' ';
+            empilhaChar(&pilha, inFixa[i]);
+        } else {
+            int len = ehFuncao(inFixa, i);
+            if (len > 0) {
+                empilhaChar(&pilha, inFixa[i + len - 1]); // Usa último caractere como identificador
+                i += len - 1;
             }
-            empilharOp(&pilhaOp, exprInFixa[i]);
-            i++;
         }
     }
 
-    // Desempilha operadores restantes
-    while (!pilhaOpVazia(&pilhaOp)) {
-        saida[j++] = desempilharOp(&pilhaOp);
-        saida[j++] = ' ';
+    while (!pilhaVazia(&pilha)) {
+        posFixa[j++] = desempilhaChar(&pilha);
+        posFixa[j++] = ' ';
     }
 
-    saida[j] = '\0';
-    return saida;
+    posFixa[j] = '\0';
+    return posFixa;
 }
 
-// Converte expressao pos-fixa para infixa
-char *converterParaInFixa(char *exprPosFixa) {
-    static char saida[MAX_TAM];
-    PilhaOperadores pilha;
-    inicializarPilhaOp(&pilha);
-    char *token = strtok(exprPosFixa, " ");
-    char temp[MAX_TAM];
-    char operando1[MAX_TAM], operando2[MAX_TAM];
-
-    saida[0] = '\0';
+// Avalia expressão pós-fixa
+float getValorPosFixa(char *posFixa) {
+    PilhaFloat pilha;
+    inicializaPilhaFloat(&pilha);
+    char *token = strtok(posFixa, " ");
 
     while (token != NULL) {
-        // Se for numero
-        if (isdigit(token[0])) {
-            strcpy(temp, token);
-            strcat(temp, " ");
-            empilharOp(&pilha, temp);
-        }
-        // Se for operador binario
-        else if (strchr("+-*/%^", token[0]) && strlen(token) == 1) {
-            strcpy(operando2, desempilharOp(&pilha));
-            strcpy(operando1, desempilharOp(&pilha));
-            
-            sprintf(temp, "(%s %c %s)", operando1, token[0], operando2);
-            empilharOp(&pilha, temp);
-        }
-        // Se for funcao matematica
-        else {
-            strcpy(operando1, desempilharOp(&pilha));
-            sprintf(temp, "%s(%s)", token, operando1);
-            empilharOp(&pilha, temp);
+        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1]))) {
+            empilhaFloat(&pilha, atof(token));
+        } else if (ehOperador(token[0])) {
+            float b = desempilhaFloat(&pilha);
+            float a = desempilhaFloat(&pilha);
+            switch (token[0]) {
+                case '+': empilhaFloat(&pilha, a + b); break;
+                case '-': empilhaFloat(&pilha, a - b); break;
+                case '*': empilhaFloat(&pilha, a * b); break;
+                case '/': empilhaFloat(&pilha, a / b); break;
+                case '%': empilhaFloat(&pilha, fmod(a, b)); break;
+                case '^': empilhaFloat(&pilha, pow(a, b)); break;
+            }
+        } else {
+            float a = desempilhaFloat(&pilha);
+            switch (token[0]) {
+                case 'r': empilhaFloat(&pilha, sqrt(a)); break;      // raiz
+                case 's': empilhaFloat(&pilha, sin(a * M_PI / 180)); break; // sen (graus para radianos)
+                case 'c': empilhaFloat(&pilha, cos(a * M_PI / 180)); break; // cos
+                case 't': empilhaFloat(&pilha, tan(a * M_PI / 180)); break; // tg
+                case 'l': empilhaFloat(&pilha, log10(a)); break;      // log
+            }
         }
         token = strtok(NULL, " ");
     }
 
-    strcpy(saida, desempilharOp(&pilha));
-    return saida;
+    return desempilhaFloat(&pilha);
 }
 
-// Calcula valor da expressao pos-fixa
-float calcularExpressaoPosFixa(char *exprPosFixa) {
-    PilhaNumeros pilha;
-    inicializarPilhaNum(&pilha);
-    char *token = strtok(exprPosFixa, " ");
-
-    while (token != NULL) {
-        // Se for numero
-        if (isdigit(token[0])) {
-            empilharNum(&pilha, atof(token));
-        }
-        // Se for operador binario
-        else if (strchr("+-*/%^", token[0]) && strlen(token) == 1) {
-            float num2 = desempilharNum(&pilha);
-            float num1 = desempilharNum(&pilha);
-            empilharNum(&pilha, aplicarOperacao(num1, num2, token[0]));
-        }
-        // Se for funcao matematica
-        else {
-            float num = desempilharNum(&pilha);
-            empilharNum(&pilha, aplicarFuncaoMat(token, num));
-        }
-        token = strtok(NULL, " ");
-    }
-
-    return desempilharNum(&pilha);
+// Funções restantes (simples wrappers)
+char *getFormaInFixa(char *posFixa) {
+    // Implementação simplificada (não requerida no documento)
+    static char inFixa[512];
+    strcpy(inFixa, "Conversão não implementada");
+    return inFixa;
 }
 
-// Calcula valor da expressao infixa
-float calcularExpressaoInFixa(char *exprInFixa) {
-    char *posFixa = converterParaPosFixa(exprInFixa);
-    return calcularExpressaoPosFixa(posFixa);
+float getValorInFixa(char *inFixa) {
+    char *posFixa = getFormaPosFixa(inFixa);
+    return getValorPosFixa(posFixa);
 }
