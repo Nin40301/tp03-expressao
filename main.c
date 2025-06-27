@@ -1,66 +1,43 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include "expressao.h"
 
 int main() {
-    Expressao testes[] = {
-        {"3 4 + 5 *", "(3 + 4) * 5", 0},
-        {"7 2 * 4 +", "7 * 2 + 4", 0},
-        {"8 5 2 4 + * +", "8 + (5 * (2 + 4))", 0},
-        {"2 3 + log 5 /", "log(2 + 3) / 5", 0},
-        {"45 60 + 30 cos *", "(45 + 60) * cos(30)", 0},
-        {"0.5 45 sen 2 ^ +", "sen(45)^2 + 0.5", 0},
-        {"10 log 3 ^ 2 +", "(log10)^3 + 2", 0},
-        {"5 0 /", "", 0},
-        {"-5 log", "", 0},
-        {"5 -2 raiz", "", 0},
-        {"(1 + 2", "", 0},
-        {"3 + + 4", "", 0},
-        {"5 2 + 3 * 4 / 6 +", "((5 + 2) * 3) / 4 + 6", 0},
-        {"2 3 ^", "2 ^ 3", 0},
-        {"10 2 %", "10 % 2", 0}
-    };
-    int num_testes = sizeof(testes) / sizeof(Expressao);
+    ExpressaoMatematica expr;
+    char entrada[MAX_EXPRESSAO];
+    char tipo[10];
 
-    printf("--- Avaliador de Expressoes ---\n\n");
+    printf("Informe o tipo de expressao (infixa/posfixa): ");
+    fgets(tipo, sizeof(tipo), stdin);
+    tipo[strcspn(tipo, "\n")] = '\0';
 
-    for (int i = 0; i < num_testes; i++) {
-        printf("--- Teste %d ---\n", i + 1);
+    if (strcmp(tipo, "infixa") == 0) {
+        printf("Digite a expressao infixa: ");
+        fgets(entrada, MAX_EXPRESSAO, stdin);
+        entrada[strcspn(entrada, "\n")] = '\0';
 
-        char temp_posFixa_valor[512];
-        char temp_posFixa_infixa[512];
-        char temp_infixa_original[512];
+        strcpy(expr.infixa, entrada);
+        converterParaPosfixa(expr.infixa, expr.posfixa);
+        expr.valor = avaliarInfixa(expr.infixa);
 
-        strcpy(temp_posFixa_valor, testes[i].posFixa);
-        testes[i].valor = getValorPosFixa(temp_posFixa_valor);
-        printf("Pos-fixa (Original): %s\n", testes[i].posFixa);
-        if (isnan(testes[i].valor)) {
-            printf("Valor (Pos-fixa): ERRO NO CALCULO\n");
-        } else {
-            printf("Valor (Pos-fixa): %.2f\n", testes[i].valor);
-        }
+        printf("\nForma infixa: %s\n", expr.infixa);
+        printf("Forma posfixa: %s\n", expr.posfixa);
+        printf("Valor calculado: %.2f\n", expr.valor);
+    } else if (strcmp(tipo, "posfixa") == 0) {
+        printf("Digite a expressao posfixa: ");
+        fgets(entrada, MAX_EXPRESSAO, stdin);
+        entrada[strcspn(entrada, "\n")] = '\0';
 
-        strcpy(temp_posFixa_infixa, testes[i].posFixa);
-        char* infixa_convertida = getFormaInFixa(temp_posFixa_infixa);
-        if (infixa_convertida == NULL) {
-            printf("Infixa (Convertida): ERRO NA CONVERSAO\n");
-        } else {
-            printf("Infixa (Convertida): %s\n", infixa_convertida);
-            free(infixa_convertida);
-        }
+        strcpy(expr.posfixa, entrada);
+        converterParaInfixa(expr.posfixa, expr.infixa);
+        expr.valor = avaliarPosfixa(expr.posfixa);
 
-        strcpy(temp_infixa_original, testes[i].infixa);
-        float valor_infixa = getValorInFixa(temp_infixa_original);
-        printf("Infixa (Original): %s\n", testes[i].infixa);
-        if (isnan(valor_infixa)) {
-            printf("Valor (Infixa): ERRO NO CALCULO\n");
-        } else {
-            printf("Valor (Infixa): %.2f\n", valor_infixa);
-        }
-
-        printf("\n");
+        printf("\nForma posfixa: %s\n", expr.posfixa);
+        printf("Forma infixa: %s\n", expr.infixa);
+        printf("Valor calculado: %.2f\n", expr.valor);
+    } else {
+        printf("Tipo de expressao invalido.\n");
+        return 1;
     }
 
     return 0;

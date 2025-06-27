@@ -5,476 +5,268 @@
 #include <math.h>
 #include "expressao.h"
 
-typedef struct NoChar {
-    char dado;
-    struct NoChar* prox;
-} NoChar;
+typedef struct {
+    float itens[MAX_EXPRESSAO];
+    int topo;
+} PilhaNumeros;
 
 typedef struct {
-    NoChar* topo;
-} PilhaChar;
+    char itens[MAX_EXPRESSAO][20];
+    int topo;
+} PilhaOperadores;
 
-PilhaChar* criarPilhaChar() {
-    PilhaChar* p = (PilhaChar*)malloc(sizeof(PilhaChar));
-    if (!p) {
-        perror("Erro ao alocar PilhaChar");
+static void empilharNumero(PilhaNumeros* p, float valor) {
+    p->itens[++p->topo] = valor;
+}
+
+static float desempilharNumero(PilhaNumeros* p) {
+    if (p->topo < 0) {
+        fprintf(stderr, "Erro: pilha de numeros vazia\n");
         exit(EXIT_FAILURE);
     }
-    p->topo = NULL;
-    return p;
+    return p->itens[p->topo--];
 }
 
-void empilharChar(PilhaChar* p, char c) {
-    NoChar* novo = (NoChar*)malloc(sizeof(NoChar));
-    if (!novo) {
-        perror("Erro ao alocar NoChar");
+static void empilharOperador(PilhaOperadores* p, const char* operador) {
+    strcpy(p->itens[++p->topo], operador);
+}
+
+static char* desempilharOperador(PilhaOperadores* p) {
+    if (p->topo < 0) {
+        fprintf(stderr, "Erro: pilha de operadores vazia\n");
         exit(EXIT_FAILURE);
     }
-    novo->dado = c;
-    novo->prox = p->topo;
-    p->topo = novo;
+    return p->itens[p->topo--];
 }
 
-char desempilharChar(PilhaChar* p) {
-    if (p->topo == NULL) {
-        return '\0';
-    }
-    NoChar* temp = p->topo;
-    char c = temp->dado;
-    p->topo = temp->prox;
-    free(temp);
-    return c;
+static int ehOperador(const char* token) {
+    return strcmp(token, "+") == 0 || strcmp(token, "-") == 0 ||
+           strcmp(token, "*") == 0 || strcmp(token, "/") == 0 ||
+           strcmp(token, "^") == 0 || strcmp(token, "%") == 0;
 }
 
-char topoChar(PilhaChar* p) {
-    if (p->topo == NULL) {
-        return '\0';
-    }
-    return p->topo->dado;
-}
-
-int estaVaziaChar(PilhaChar* p) {
-    return p->topo == NULL;
-}
-
-void liberarPilhaChar(PilhaChar* p) {
-    while (!estaVaziaChar(p)) {
-        desempilharChar(p);
-    }
-    free(p);
-}
-
-typedef struct NoFloat {
-    float dado;
-    struct NoFloat* prox;
-} NoFloat;
-
-typedef struct {
-    NoFloat* topo;
-} PilhaFloat;
-
-PilhaFloat* criarPilhaFloat() {
-    PilhaFloat* p = (PilhaFloat*)malloc(sizeof(PilhaFloat));
-    if (!p) {
-        perror("Erro ao alocar PilhaFloat");
-        exit(EXIT_FAILURE);
-    }
-    p->topo = NULL;
-    return p;
-}
-
-void empilharFloat(PilhaFloat* p, float f) {
-    NoFloat* novo = (NoFloat*)malloc(sizeof(NoFloat));
-    if (!novo) {
-        perror("Erro ao alocar NoFloat");
-        exit(EXIT_FAILURE);
-    }
-    novo->dado = f;
-    novo->prox = p->topo;
-    p->topo = novo;
-}
-
-float desempilharFloat(PilhaFloat* p) {
-    if (p->topo == NULL) {
-        return NAN;
-    }
-    NoFloat* temp = p->topo;
-    float f = temp->dado;
-    p->topo = temp->prox;
-    free(temp);
-    return f;
-}
-
-int estaVaziaFloat(PilhaFloat* p) {
-    return p->topo == NULL;
-}
-
-void liberarPilhaFloat(PilhaFloat* p) {
-    while (!estaVaziaFloat(p)) {
-        desempilharFloat(p);
-    }
-    free(p);
-}
-
-typedef struct NoString {
-    char* dado;
-    struct NoString* prox;
-} NoString;
-
-typedef struct {
-    NoString* topo;
-} PilhaString;
-
-PilhaString* criarPilhaString() {
-    PilhaString* p = (PilhaString*)malloc(sizeof(PilhaString));
-    if (!p) {
-        perror("Erro ao alocar PilhaString");
-        exit(EXIT_FAILURE);
-    }
-    p->topo = NULL;
-    return p;
-}
-
-void empilharString(PilhaString* p, char* s) {
-    NoString* novo = (NoString*)malloc(sizeof(NoString));
-    if (!novo) {
-        perror("Erro ao alocar NoString");
-        exit(EXIT_FAILURE);
-    }
-    novo->dado = strdup(s);
-    if (!novo->dado) {
-        perror("Erro ao duplicar string para empilhar");
-        free(novo);
-        exit(EXIT_FAILURE);
-    }
-    novo->prox = p->topo;
-    p->topo = novo;
-}
-
-char* desempilharString(PilhaString* p) {
-    if (p->topo == NULL) {
-        return NULL;
-    }
-    NoString* temp = p->topo;
-    char* s = temp->dado;
-    p->topo = temp->prox;
-    free(temp);
-    return s;
-}
-
-int estaVaziaString(PilhaString* p) {
-    return p->topo == NULL;
-}
-
-void liberarPilhaString(PilhaString* p) {
-    while (!estaVaziaString(p)) {
-        char* temp_str = desempilharString(p);
-        if (temp_str) {
-            free(temp_str);
-        }
-    }
-    free(p);
-}
-
-int precedencia(char op) {
-    if (op == '^') return 4;
-    if (op == '*' || op == '/' || op == '%') return 3;
-    if (op == '+' || op == '-') return 2;
-    return 0;
-}
-
-int ehOperador(char c) {
-    return c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '^';
-}
-
-int ehFuncao(const char* token) {
+static int ehFuncao(const char* token) {
     return strcmp(token, "sen") == 0 || strcmp(token, "cos") == 0 ||
-           strcmp(token, "tg") == 0 || strcmp(token, "log") == 0 ||
+           strcmp(token, "tan") == 0 || strcmp(token, "log") == 0 ||
            strcmp(token, "raiz") == 0;
 }
 
-char* getFormaPosFixa(char* infixa) {
-    PilhaChar* p_op = criarPilhaChar();
-    char* posFixa = (char*)malloc(sizeof(char) * 512);
-    if (!posFixa) {
-        perror("Erro ao alocar posFixa");
-        liberarPilhaChar(p_op);
-        return NULL;
-    }
-    posFixa[0] = '\0';
-    int j = 0;
-
-    char temp_token[50];
-
-    for (int i = 0; infixa[i] != '\0'; i++) {
-        if (isspace(infixa[i])) continue;
-
-        if (isdigit(infixa[i]) || (infixa[i] == '-' && (i == 0 || infixa[i-1] == '(' || ehOperador(infixa[i-1])) && isdigit(infixa[i+1]))) {
-            while (isdigit(infixa[i]) || infixa[i] == '.') {
-                posFixa[j++] = infixa[i++];
-            }
-            posFixa[j++] = ' ';
-            i--;
-        } else if (isalpha(infixa[i])) {
-            int k = 0;
-            while (isalpha(infixa[i]) && k < 49) {
-                temp_token[k++] = infixa[i++];
-            }
-            temp_token[k] = '\0';
-            i--;
-
-            if (ehFuncao(temp_token)) {
-                // Para simplificar, empilhamos um marcador para funções na pilha de operadores
-                empilharChar(p_op, 'F');
-            } else {
-                fprintf(stderr, "Erro: Funcao desconhecida '%s'\n", temp_token);
-                free(posFixa);
-                liberarPilhaChar(p_op);
-                return NULL;
-            }
-        }
-        else if (infixa[i] == '(') {
-            empilharChar(p_op, infixa[i]);
-        } else if (infixa[i] == ')') {
-            while (!estaVaziaChar(p_op) && topoChar(p_op) != '(') {
-                posFixa[j++] = desempilharChar(p_op);
-                posFixa[j++] = ' ';
-            }
-            if (!estaVaziaChar(p_op) && topoChar(p_op) == '(') {
-                desempilharChar(p_op);
-            } else {
-                fprintf(stderr, "Erro: Parenteses nao balanceados (falta '(' ).\n");
-                free(posFixa);
-                liberarPilhaChar(p_op);
-                return NULL;
-            }
-            if (!estaVaziaChar(p_op) && topoChar(p_op) == 'F') {
-                posFixa[j++] = desempilharChar(p_op);
-                posFixa[j++] = ' ';
-            }
-        } else if (ehOperador(infixa[i])) {
-            while (!estaVaziaChar(p_op) && precedencia(topoChar(p_op)) >= precedencia(infixa[i])) {
-                posFixa[j++] = desempilharChar(p_op);
-                posFixa[j++] = ' ';
-            }
-            empilharChar(p_op, infixa[i]);
-        } else {
-            fprintf(stderr, "Erro: Caractere invalido na expressao infixa: '%c'\n", infixa[i]);
-            free(posFixa);
-            liberarPilhaChar(p_op);
-            return NULL;
-        }
-    }
-
-    while (!estaVaziaChar(p_op)) {
-        char op = desempilharChar(p_op);
-        if (op == '(') {
-            fprintf(stderr, "Erro: Parenteses nao balanceados (falta ')' ).\n");
-            free(posFixa);
-            liberarPilhaChar(p_op);
-            return NULL;
-        }
-        posFixa[j++] = op;
-        posFixa[j++] = ' ';
-    }
-
-    posFixa[j] = '\0';
-    liberarPilhaChar(p_op);
-    return posFixa;
+static int precedencia(const char* op) {
+    if (ehFuncao(op)) return 5;
+    if (strcmp(op, "^") == 0) return 4;
+    if (strcmp(op, "*") == 0 || strcmp(op, "/") == 0 || strcmp(op, "%") == 0) return 3;
+    if (strcmp(op, "+") == 0 || strcmp(op, "-") == 0) return 2;
+    return 0;
 }
 
-float getValorPosFixa(char* posFixaOriginal) {
-    PilhaFloat* p_val = criarPilhaFloat();
-    char* posFixaCopia = strdup(posFixaOriginal);
-    if (!posFixaCopia) {
-        perror("Erro ao duplicar string posFixa para avaliacao");
-        liberarPilhaFloat(p_val);
-        return NAN;
+static int associativoDireita(const char* op) {
+    return strcmp(op, "^") == 0 || ehFuncao(op);
+}
+
+static void processarOperador(PilhaOperadores* pilhaOp, const char* op, char* saida) {
+    while (pilhaOp->topo >= 0 && 
+           (precedencia(pilhaOp->itens[pilhaOp->topo]) > precedencia(op) ||
+           (precedencia(pilhaOp->itens[pilhaOp->topo]) == precedencia(op) && 
+            !associativoDireita(op))) {
+        if (strcmp(pilhaOp->itens[pilhaOp->topo], "(") == 0) break;
+        strcat(saida, desempilharOperador(pilhaOp));
+        strcat(saida, " ");
+    }
+    empilharOperador(pilhaOp, op);
+}
+
+void converterParaPosfixa(const char* infixa, char* posfixa) {
+    PilhaOperadores pilhaOp = { .topo = -1 };
+    char token[20];
+    int pos = 0;
+    posfixa[0] = '\0';
+
+    while (infixa[pos] != '\0') {
+        while (infixa[pos] == ' ') pos++;
+
+        if (infixa[pos] == '\0') break;
+
+        int i = 0;
+        if (isalpha(infixa[pos])) {
+            while (isalpha(infixa[pos]) && i < 19) {
+                token[i++] = infixa[pos++];
+            }
+            token[i] = '\0';
+            empilharOperador(&pilhaOp, token);
+        } else if (isdigit(infixa[pos]) || infixa[pos] == '.' || 
+                  (infixa[pos] == '-' && (pos == 0 || infixa[pos-1] == '('))) {
+            if (infixa[pos] == '-') token[i++] = infixa[pos++];
+            while ((isdigit(infixa[pos]) || infixa[pos] == '.') && i < 19) {
+                token[i++] = infixa[pos++];
+            }
+            token[i] = '\0';
+            strcat(posfixa, token);
+            strcat(posfixa, " ");
+        } else if (infixa[pos] == '(') {
+            empilharOperador(&pilhaOp, "(");
+            pos++;
+        } else if (infixa[pos] == ')') {
+            while (pilhaOp.topo >= 0 && strcmp(pilhaOp.itens[pilhaOp.topo], "(") != 0) {
+                strcat(posfixa, desempilharOperador(&pilhaOp));
+                strcat(posfixa, " ");
+            }
+            if (pilhaOp.topo < 0) {
+                fprintf(stderr, "Erro: parenteses desbalanceados\n");
+                exit(EXIT_FAILURE);
+            }
+            desempilharOperador(&pilhaOp);
+            
+            if (pilhaOp.topo >= 0 && ehFuncao(pilhaOp.itens[pilhaOp.topo])) {
+                strcat(posfixa, desempilharOperador(&pilhaOp));
+                strcat(posfixa, " ");
+            }
+            pos++;
+        } else {
+            token[0] = infixa[pos++];
+            token[1] = '\0';
+            processarOperador(&pilhaOp, token, posfixa);
+        }
     }
 
-    char* token = strtok(posFixaCopia, " ");
-    float resultado = NAN;
+    while (pilhaOp.topo >= 0) {
+        if (strcmp(pilhaOp.itens[pilhaOp.topo], "(") == 0) {
+            fprintf(stderr, "Erro: parenteses desbalanceados\n");
+            exit(EXIT_FAILURE);
+        }
+        strcat(posfixa, desempilharOperador(&pilhaOp));
+        strcat(posfixa, " ");
+    }
+}
+
+float avaliarPosfixa(const char* posfixa) {
+    PilhaNumeros pilha = { .topo = -1 };
+    char copia[MAX_EXPRESSAO];
+    strcpy(copia, posfixa);
+    char* token = strtok(copia, " ");
 
     while (token != NULL) {
-        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])) || (token[0] == '.' && isdigit(token[1]))) {
-            empilharFloat(p_val, atof(token));
-        } else if (ehFuncao(token) || (token[0] == 'F' && token[1] == '\0')) {
-            float a = desempilharFloat(p_val);
-            if (isnan(a)) {
-                fprintf(stderr, "Erro: Expressao pos-fixada invalida (operando insuficiente para funcao '%s').\n", token);
-                goto error_cleanup;
+        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1]))) {
+            empilharNumero(&pilha, atof(token));
+        } else if (ehOperador(token)) {
+            if (pilha.topo < 1) {
+                fprintf(stderr, "Erro: operandos insuficientes para %s\n", token);
+                exit(EXIT_FAILURE);
             }
-
-            if (strcmp(token, "sen") == 0) {
-                empilharFloat(p_val, sin(a * M_PI / 180.0));
-            } else if (strcmp(token, "cos") == 0) {
-                empilharFloat(p_val, cos(a * M_PI / 180.0));
-            } else if (strcmp(token, "tg") == 0) {
-                empilharFloat(p_val, tan(a * M_PI / 180.0));
-            } else if (strcmp(token, "log") == 0) {
-                if (a <= 0.0f) {
-                    fprintf(stderr, "Erro: Logaritmo de numero nao positivo (%.2f).\n", a);
-                    goto error_cleanup;
-                }
-                empilharFloat(p_val, log10(a));
-            } else if (strcmp(token, "raiz") == 0) {
-                if (a < 0.0f) {
-                    fprintf(stderr, "Erro: Raiz quadrada de numero negativo (%.2f).\n", a);
-                    goto error_cleanup;
-                }
-                empilharFloat(p_val, sqrt(a));
-            } else if (strcmp(token, "F") == 0) {
-                fprintf(stderr, "Erro: Marcador de funcao generico 'F' encontrado sem nome de funcao explicito.\n");
-                goto error_cleanup;
-            }
-        } else if (ehOperador(token[0]) && token[1] == '\0') {
-            float b = desempilharFloat(p_val);
-            float a = desempilharFloat(p_val);
-
-            if (isnan(a) || isnan(b)) {
-                fprintf(stderr, "Erro: Expressao pos-fixada invalida (operando insuficiente para operador '%c').\n", token[0]);
-                goto error_cleanup;
-            }
-
+            float b = desempilharNumero(&pilha);
+            float a = desempilharNumero(&pilha);
+            
             switch (token[0]) {
-                case '+': empilharFloat(p_val, a + b); break;
-                case '-': empilharFloat(p_val, a - b); break;
-                case '*': empilharFloat(p_val, a * b); break;
-                case '/':
-                    if (b == 0.0f) {
-                        fprintf(stderr, "Erro: Divisao por zero.\n");
-                        goto error_cleanup;
+                case '+': empilharNumero(&pilha, a + b); break;
+                case '-': empilharNumero(&pilha, a - b); break;
+                case '*': empilharNumero(&pilha, a * b); break;
+                case '/': 
+                    if (b == 0) {
+                        fprintf(stderr, "Erro: divisao por zero\n");
+                        exit(EXIT_FAILURE);
                     }
-                    empilharFloat(p_val, a / b);
+                    empilharNumero(&pilha, a / b); 
                     break;
+                case '^': empilharNumero(&pilha, powf(a, b)); break;
                 case '%':
-                    if (b == 0.0f) {
-                        fprintf(stderr, "Erro: Modulo por zero.\n");
-                        goto error_cleanup;
+                    if ((int)a != a || (int)b != b) {
+                        fprintf(stderr, "Erro: operador %% requer inteiros\n");
+                        exit(EXIT_FAILURE);
                     }
-                    empilharFloat(p_val, (float)((int)a % (int)b));
+                    if (b == 0) {
+                        fprintf(stderr, "Erro: modulo por zero\n");
+                        exit(EXIT_FAILURE);
+                    }
+                    empilharNumero(&pilha, (float)((int)a % (int)b));
                     break;
-                case '^': empilharFloat(p_val, pow(a, b)); break;
+            }
+        } else if (ehFuncao(token)) {
+            if (pilha.topo < 0) {
+                fprintf(stderr, "Erro: operando insuficiente para %s\n", token);
+                exit(EXIT_FAILURE);
+            }
+            float x = desempilharNumero(&pilha);
+            
+            if (strcmp(token, "sen") == 0) {
+                empilharNumero(&pilha, sinf(x * M_PI / 180.0f));
+            } else if (strcmp(token, "cos") == 0) {
+                empilharNumero(&pilha, cosf(x * M_PI / 180.0f));
+            } else if (strcmp(token, "tan") == 0) {
+                empilharNumero(&pilha, tanf(x * M_PI / 180.0f));
+            } else if (strcmp(token, "log") == 0) {
+                if (x <= 0) {
+                    fprintf(stderr, "Erro: log de valor nao positivo\n");
+                    exit(EXIT_FAILURE);
+                }
+                empilharNumero(&pilha, log10f(x));
+            } else if (strcmp(token, "raiz") == 0) {
+                if (x < 0) {
+                    fprintf(stderr, "Erro: raiz de valor negativo\n");
+                    exit(EXIT_FAILURE);
+                }
+                empilharNumero(&pilha, sqrtf(x));
             }
         } else {
-            fprintf(stderr, "Erro: Token desconhecido na expressao pos-fixada: '%s'.\n", token);
-            goto error_cleanup;
+            fprintf(stderr, "Erro: token invalido '%s'\n", token);
+            exit(EXIT_FAILURE);
         }
         token = strtok(NULL, " ");
     }
 
-    if (estaVaziaFloat(p_val)) {
-        fprintf(stderr, "Erro: Expressao pos-fixada vazia ou mal formada (nenhum resultado).\n");
-        goto error_cleanup;
-    }
-    resultado = desempilharFloat(p_val);
-    if (!estaVaziaFloat(p_val)) {
-        fprintf(stderr, "Erro: Expressao pos-fixada mal formada (operandos extras).\n");
-        while(!estaVaziaFloat(p_val)) desempilharFloat(p_val);
-        resultado = NAN;
+    if (pilha.topo != 0) {
+        fprintf(stderr, "Erro: expressao mal formada\n");
+        exit(EXIT_FAILURE);
     }
 
-error_cleanup:
-    if (posFixaCopia) free(posFixaCopia);
-    liberarPilhaFloat(p_val);
-    return resultado;
+    return desempilharNumero(&pilha);
 }
 
-char* getFormaInFixa(char* posFixaOriginal) {
-    PilhaString* p_str = criarPilhaString();
-    char* posFixaCopia = strdup(posFixaOriginal);
-    if (!posFixaCopia) {
-        perror("Erro ao duplicar string posFixa para conversao infixa");
-        liberarPilhaString(p_str);
-        return NULL;
-    }
+float avaliarInfixa(const char* infixa) {
+    char posfixa[MAX_EXPRESSAO];
+    converterParaPosfixa(infixa, posfixa);
+    return avaliarPosfixa(posfixa);
+}
 
-    char* token = strtok(posFixaCopia, " ");
-    char* resultado = NULL;
+void converterParaInfixa(const char* posfixa, char* infixa) {
+    char pilha[MAX_EXPRESSAO][MAX_EXPRESSAO];
+    int topo = -1;
+    char copia[MAX_EXPRESSAO];
+    strcpy(copia, posfixa);
+    char* token = strtok(copia, " ");
 
     while (token != NULL) {
-        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])) || (token[0] == '.' && isdigit(token[1]))) {
-            empilharString(p_str, token);
-        } else if (ehOperador(token[0]) && token[1] == '\0') {
-            char* b = desempilharString(p_str);
-            char* a = desempilharString(p_str);
-
-            if (a == NULL || b == NULL) {
-                fprintf(stderr, "Erro: Expressao pos-fixada invalida (operandos insuficientes para operador '%c').\n", token[0]);
-                if (a) free(a);
-                if (b) free(b);
-                goto error_cleanup;
+        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1]))) {
+            strcpy(pilha[++topo], token);
+        } else if (ehOperador(token)) {
+            if (topo < 1) {
+                fprintf(stderr, "Erro: operandos insuficientes para %s\n", token);
+                exit(EXIT_FAILURE);
             }
-
-            char* temp_infixa = (char*)malloc(strlen(a) + strlen(b) + 5 + 1);
-            if (!temp_infixa) {
-                perror("Erro ao alocar temp_infixa");
-                free(a); free(b);
-                goto error_cleanup;
+            char b[MAX_EXPRESSAO];
+            char a[MAX_EXPRESSAO];
+            strcpy(b, pilha[topo--]);
+            strcpy(a, pilha[topo--]);
+            
+            sprintf(pilha[++topo], "(%s %s %s)", a, token, b);
+        } else if (ehFuncao(token)) {
+            if (topo < 0) {
+                fprintf(stderr, "Erro: operando insuficiente para %s\n", token);
+                exit(EXIT_FAILURE);
             }
-            sprintf(temp_infixa, "(%s %c %s)", a, token[0], b);
-            empilharString(p_str, temp_infixa);
-            free(temp_infixa);
-            free(a);
-            free(b);
-
-        } else if (ehFuncao(token) || (token[0] == 'F' && token[1] == '\0')) {
-            char* a = desempilharString(p_str);
-            if (a == NULL) {
-                fprintf(stderr, "Erro: Expressao pos-fixada invalida (operando insuficiente para funcao '%s').\n", token);
-                goto error_cleanup;
-            }
-
-            char* temp_infixa;
-            if (strcmp(token, "F") == 0) {
-                temp_infixa = (char*)malloc(strlen(a) + 10 + 1);
-                if (!temp_infixa) { free(a); goto error_cleanup; }
-                sprintf(temp_infixa, "func(%s)", a);
-            } else {
-                temp_infixa = (char*)malloc(strlen(token) + strlen(a) + 3 + 1);
-                if (!temp_infixa) { free(a); goto error_cleanup; }
-                sprintf(temp_infixa, "%s(%s)", token, a);
-            }
-            empilharString(p_str, temp_infixa);
-            free(temp_infixa);
-            free(a);
+            char a[MAX_EXPRESSAO];
+            strcpy(a, pilha[topo--]);
+            
+            sprintf(pilha[++topo], "%s(%s)", token, a);
         } else {
-            fprintf(stderr, "Erro: Token desconhecido na expressao pos-fixada para conversao infixa: '%s'.\n", token);
-            goto error_cleanup;
+            fprintf(stderr, "Erro: token invalido '%s'\n", token);
+            exit(EXIT_FAILURE);
         }
         token = strtok(NULL, " ");
     }
 
-    if (estaVaziaString(p_str)) {
-        fprintf(stderr, "Erro: Expressao pos-fixada vazia ou mal formada (nenhum resultado para infixa).\n");
-        goto error_cleanup;
-    }
-    resultado = desempilharString(p_str);
-    if (!estaVaziaString(p_str)) {
-        fprintf(stderr, "Erro: Expressao pos-fixada mal formada (strings extras na pilha).\n");
-        if (resultado) free(resultado);
-        resultado = NULL;
-        while(!estaVaziaString(p_str)) {
-            char* extra_str = desempilharString(p_str);
-            if (extra_str) free(extra_str);
-        }
+    if (topo != 0) {
+        fprintf(stderr, "Erro: expressao mal formada\n");
+        exit(EXIT_FAILURE);
     }
 
-error_cleanup:
-    if (posFixaCopia) free(posFixaCopia);
-    liberarPilhaString(p_str);
-    return resultado;
-}
-
-float getValorInFixa(char* infixa) {
-    char* posFixa = getFormaPosFixa(infixa);
-    if (posFixa == NULL) {
-        return NAN;
-    }
-
-    float valor = getValorPosFixa(posFixa);
-
-    free(posFixa);
-
-    return valor;
+    strcpy(infixa, pilha[topo]);
 }
